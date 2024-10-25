@@ -22,8 +22,10 @@ def pertanyaan_satu(df):
 def pertanyaan_dua(df):
     rating_service = df['review_score'].value_counts().sort_values(ascending=False)
     max_score = rating_service.idxmax()
-    df_cust=df['review_score']
-    return (rating_service,max_score,df_cust)
+    df_avg = df['review_score']
+    rating_df = rating_service.reset_index()
+    rating_df.columns = ['review_score', 'frequency']  # Mengubah nama kolom
+    return (rating_service, max_score, df_avg, rating_df)
 
 def pertanyaan_tiga(df):
     df_bulanan = df_all.resample(rule='M', on='order_approved_at').agg({
@@ -72,7 +74,7 @@ with st.sidebar:
 
 # Memanggil Fungsi
 pertanyaanSatu = pertanyaan_satu(df_all)
-rating_service,max_score,df_rating_service = pertanyaan_dua(df_all)
+rating_service, max_score, df_rating_service, rating_df = pertanyaan_dua(df_all)
 df_performa = pertanyaan_tiga(df_all)
 rfm = pertanyaan_empat(df_all)
 customers_geolocation_map = pertanyaan_lima(df_geolocation, df_all)
@@ -95,16 +97,20 @@ fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(24, 8))
 colors_positive = ["#40E65F", "#D3D3D3", "#D3D3D3", "#D3D3D3", "#D3D3D3"]
 colors_negative = ["#D63341", "#D3D3D3", "#D3D3D3", "#D3D3D3", "#D3D3D3"]
 
+sorted_new = pertanyaanSatu.sort_values(by="product_id", ascending=False).head(5)
 sns.barplot(x="product_id", y="product_category_name_english", 
-            data=pertanyaanSatu.head(5), palette=colors_positive, ax=ax[0])
+    data=pertanyaanSatu.sort_values(by="product_id", ascending=False).head(5), 
+    palette=colors_positive, hue="product_id",  
+    hue_order=sorted(sorted_new['product_id'], reverse=True),
+    ax=ax[0])
 ax[0].set_xlabel('Frekuensi')
 ax[0].set_ylabel('Nama Produk')
 ax[0].set_xlabel(None)
 ax[0].set_title("Produk dengan jumlah pembelian terbesar", loc="center", fontsize=18)
 ax[0].tick_params(axis ='y', labelsize=15)
 
-sns.barplot(x="product_id", y="product_category_name_english", 
-            data=pertanyaanSatu.sort_values(by="product_id", ascending=True).head(5), palette=colors_negative, ax=ax[1])
+sns.barplot(x="product_id", y="product_category_name_english", data=pertanyaanSatu.sort_values(by="product_id", ascending=True).head(5), 
+    palette=colors_negative, hue="product_id", ax=ax[1])
 ax[1].set_xlabel('Frekuensi')
 ax[1].set_ylabel('Nama Produk')
 ax[1].invert_xaxis()
@@ -115,7 +121,7 @@ ax[1].tick_params(axis='y', labelsize=15)
 
 plt.suptitle("Produk yang memiliki jumlah pembelian terbesar dan terkecil", fontsize=20)
 st.pyplot(fig)
-st.write('Produk dengan jumlah pembelian terbesar yaitu **bed_bath_table**. Sebaliknya produk dengan jumlah pembelian terkecil yaitu **security_and_services**.')
+st.write('Produk dengan jumlah pembelian terbesar yaitu **bed_bath_table dengan perolehan 11988**. Sebaliknya produk dengan jumlah pembelian terkecil yaitu **security_and_services dengan perolehan 2**.')
 
 
 # PERTANYAAN KEDUA
@@ -133,7 +139,9 @@ plt.figure(figsize=(10, 5))
 sns.barplot(x=rating_service.index, 
             y=rating_service.values, 
             order=rating_service.index,
-            palette=["#40E65F" if score == max_score else "#D3D3D3" for score in rating_service.index]
+            palette=["#40E65F" if score == max_score else "#D3D3D3" for score in rating_service.index],
+            hue=rating_df['frequency'],
+            hue_order=sorted(rating_df['frequency'], reverse=True)
             )
 
 plt.title("Tingkat kepuasan pembeli dari rating", fontsize=15)
@@ -141,7 +149,7 @@ plt.xlabel("Rating")
 plt.ylabel("Customer")
 plt.xticks(fontsize=12)
 st.pyplot(plt)
-st.write('**Rating 5 adalah rating tertinggi** dengan perolehan lebih dari 60000 customer, yang kemudian disusul oleh **rating 4** dan **rating 1**.')
+st.write('**Rating 5 adalah rating tertinggi dengan perolehan 66343 customer** yang ditandai dengan warna hijau, kemudian disusul oleh **rating 4** dan **rating 1**.')
 
 
 # PERTANYAAN KETIGA
@@ -182,7 +190,8 @@ with tab1:
         y="recency", 
         x="customer_id", 
         data=rfm.sort_values(by="recency", ascending=True).head(5), 
-        palette=colors
+        palette=colors,
+        hue='recency'
         )
     plt.title("Recency (Hari)", loc="center", fontsize=18)
     plt.ylabel('')
@@ -193,13 +202,15 @@ with tab1:
     st.write('Untuk Recency, customer yang terakhir kali berbelanja adalah **1 hari yang lalu** diikuti oleh **2 hari yang lalu**, tetapi ada perbedaan cukup jauh setelahnya yaitu **15 hari yang lalu** dan seterusnya.')
 
 with tab2:
+    freq_data = rfm.sort_values(by="frequency", ascending=False).head(5)
     plt.figure(figsize=(16, 8))
     sns.barplot(
         y="frequency", 
         x="customer_id", 
-        data=rfm.sort_values(by="frequency", ascending=False).head(5), 
+        data=freq_data, 
         palette=colors,
-        
+        hue='frequency',
+        hue_order=sorted(freq_data['frequency'], reverse=True)
         )
     plt.ylabel('')
     plt.xlabel("Customer")
@@ -207,15 +218,18 @@ with tab2:
     plt.tick_params(axis ='x', labelsize=15)
     plt.xticks([])
     st.pyplot(plt)
-    st.write('Untuk Frekuensi, customer dengan pembelian produk terbanyak adalah **63 produk**, lalu terjadi gap cukup jauh ke **30an produk** dan seterusnya.')
+    st.write('Untuk Frekuensi, customer dengan pembelian produk terbanyak adalah **63 produk**, lalu terjadi gap cukup jauh ke **38 produk**, **29 produk** dan seterusnya.')
 
 with tab3:
+    mon_data = rfm.sort_values(by="monetary", ascending=False).head(5)
     plt.figure(figsize=(16, 8))
     sns.barplot(
         y="monetary", 
         x="customer_id", 
-        data=rfm.sort_values(by="monetary", ascending=False).head(5), 
+        data=mon_data, 
         palette=colors,
+        hue='monetary',
+        hue_order=sorted(mon_data['monetary'], reverse=True)
         )
     plt.ylabel('')
     plt.xlabel("Customer")
@@ -223,7 +237,7 @@ with tab3:
     plt.tick_params(axis ='x', labelsize=15)
     plt.xticks([])
     st.pyplot(plt)
-    st.write('Untuk Monetary, customer dengan pengeluaran terbesar adalah **13440** diikuti oleh **11000an**, **10000an**, dan seterusnya.')
+    st.write('Untuk Monetary, customer dengan pengeluaran terbesar adalah **13440** diikuti oleh **11383.95**, **10856.1** dan seterusnya.')
 
 
 #PERTANYAAN LIMA
