@@ -29,4 +29,4 @@ pip install -r requirements.txt
 streamlit run ./dashboard/dashboard.py
 ```
 2. Menjalankan visualisasi dashboard melalui daring dengan klik link dibawah ini:
-[Proyek Akhir Analisis Data]()
+[Proyek Akhir Analisis Data](https://meakhelg-proyek-akhir-data-analytics.streamlit.app/)
